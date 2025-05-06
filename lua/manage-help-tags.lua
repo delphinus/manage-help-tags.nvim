@@ -19,7 +19,21 @@ function M.setup(opts)
   M.dir = opts.dir
 
   if opts.auto_generate then
-    vim.api.nvim_create_autocmd("User", { pattern = { "LazyInstall", "LazyUpdate" }, callback = M.generate_tags })
+    vim.api.nvim_create_autocmd("User", {
+      pattern = { "LazyInstall", "LazyUpdate" },
+      callback = function()
+        local ok, lazy = pcall(require, "lazy")
+        if ok then
+          local dirs = vim
+            .iter(lazy.plugins())
+            :map(function(plugin)
+              return plugin.dir
+            end)
+            :totable()
+          M.generate_tags(dirs)
+        end
+      end,
+    })
   end
 end
 
@@ -27,12 +41,14 @@ function M.info(...)
   pcall(vim.notify, ...)
 end
 
-function M.generate_tags()
+---@param dirs string[]
+---@return nil
+function M.generate_tags(dirs)
   M.info "Start generating tags"
   local Path = require "plenary.path"
   local result = {}
-  for _, plugin in ipairs(require("lazy").plugins()) do
-    M.gather_tags(result, vim.fs.joinpath(plugin.dir, "doc"))
+  for _, dir in ipairs(dirs) do
+    M.gather_tags(result, vim.fs.joinpath(dir, "doc"))
   end
   local dir = Path:new(M.dir)
   dir:mkdir { parents = true }
